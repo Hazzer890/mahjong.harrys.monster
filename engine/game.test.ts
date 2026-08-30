@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { applyAction, GameError, newHand, seatWind, RoomConfig } from './game';
+import { applyAction, GameError, newHand, nextHand, seatWind, RoomConfig } from './game';
 
 const cfg = (over: Partial<RoomConfig> = {}): RoomConfig =>
   ({ seats: 4, length: 'match', minFaan: 3, timer: false, ...over });
@@ -29,10 +29,16 @@ test('3-player deal', () => {
   expect(seatWind(g, 2)).toBe('W');
 });
 
-function stackedWall(hands: string[][], dealerExtra: string, rest: string[]): string[] {
+function stackedWall(
+  hands: string[][],
+  dealerExtra: string,
+  rest: string[],
+  dealer = 0,
+): string[] {
   const wall: string[] = [];
   for (let round = 0; round < 13; round++)
-    for (const hand of hands) wall.push(hand[round]);
+    for (let i = 0; i < hands.length; i++)
+      wall.push(hands[(dealer + i) % hands.length][round]);
   wall.push(dealerExtra, ...rest);
   return wall;
 }
@@ -44,7 +50,7 @@ function fixedHand(
   config: Partial<RoomConfig> = {},
 ) {
   return newHand(
-    { seats: hands.length, length: 'hand', minFaan: 0, timer: false, ...config },
+    { seats: hands.length, length: 'match', minFaan: 0, timer: false, ...config },
     0,
     'E',
     hands.map(() => 0),
@@ -286,6 +292,7 @@ test('added gong can be robbed for the win without touching the discard pile', (
   expect(g.result!.winner).toBe(1);
   expect(g.result!.loser).toBe(2);
   expect(g.result!.winTile).toBe('b9');
+  expect(g.result!.items).toContainEqual({ name: 'Robbing the gong', faan: 1 });
   expect(g.seats[2].melds[0].kind).toBe('pung');
   expect(g.seats.map(seat => seat.discards)).toEqual(discardsBeforeRob);
 });
@@ -371,4 +378,145 @@ test('invalid gong self actions are rejected without changing state', () => {
     type: 'selfAction', seat: 0, action: 'addedGong', tile: 'b1',
   })).toThrow(GameError);
   expect(JSON.stringify(g)).toBe(before);
+});
+
+const allChowsWaitB3 = [
+  'b1','b2','c1','c2','c3','d1','d2','d3','b4','b5','b6','wS','wS',
+];
+
+test('discard win payments: loser pays all and result carries the winning hand', () => {
+  const g = fixedHand([H.a, allChowsWaitB3, H.c, H.d], 'b3', []);
+  g.anyCall = true; // Disable earthly hand: All chows 1 + No flowers 1 + Last tile 1 = 3 faan.
+
+  applyAction(g, { type: 'discard', seat: 0, tile: 'b3' });
+  applyAction(g, { type: 'claim', seat: 1, claim: 'win' });
+
+  expect(g.result!.faan).toBe(3);
+  expect(g.result!.items).toContainEqual({ name: 'All chows', faan: 1 });
+  expect(g.result!.payments).toEqual([-24, 24, 0, 0]); // 2^3 * three opponents.
+  expect(g.seats.map(seat => seat.score)).toEqual([-24, 24, 0, 0]);
+  expect(g.result!.winTile).toBe('b3');
+  expect(g.result!.winningConcealed).toHaveLength(14);
+  expect(g.result!.winningConcealed).toContain('b3');
+  expect(g.result!.winningMelds).toEqual([]);
+});
+
+test('self-draw payments: everyone pays', () => {
+  const g = fixedHand([H.a, H.b, H.c, H.d], 'b1', ['c9']);
+  g.anyDiscard = true; // Disable heavenly hand: No flowers 1 + Self-draw 1 = 2 faan.
+
+  applyAction(g, { type: 'selfAction', seat: 0, action: 'win' });
+
+  expect(g.result!.faan).toBe(2);
+  expect(g.result!.payments).toEqual([12, -4, -4, -4]); // Base 2^2, paid by all three opponents.
+  expect(g.seats.map(seat => seat.score)).toEqual([12, -4, -4, -4]);
+});
+
+test('goulash: no payments and dealer repeats in the next hand', () => {
+  const g = fixedHand(
+    [H.a, H.b, H.c, H.d],
+    'd9',
+    [],
+    { length: 'match' },
+  );
+  applyAction(g, { type: 'discard', seat: 0, tile: 'd9' });
+
+  expect(g.result).toEqual({
+    winner: null, loser: null, payments: [0, 0, 0, 0], winTile: undefined,
+  });
+  const following = nextHand(
+    g,
+    () => 0,
+    stackedWall([H.a, H.b, H.c, H.d], 'b1', ['c9']),
+  );
+  expect(following.dealer).toBe(0);
+  expect(following.roundWind).toBe('E');
+  expect(following.seats.map(seat => seat.score)).toEqual([0, 0, 0, 0]);
+});
+
+const twoSeatConfig: RoomConfig = {
+  seats: 2, length: 'match', minFaan: 0, timer: false,
+};
+
+function twoSeatProgressionWall(dealer: number) {
+  const hands = dealer === 0
+    ? [H.a, allChowsWaitB3]
+    : [allChowsWaitB3, H.a];
+  return stackedWall(hands, 'b3', [], dealer);
+}
+
+function nonDealerWins(g: ReturnType<typeof newHand>) {
+  const winner = (g.dealer + 1) % 2;
+  g.anyCall = true; // Keep the fixture's score independent of first-turn limit hands.
+  applyAction(g, { type: 'discard', seat: g.dealer, tile: 'b3' });
+  applyAction(g, { type: 'claim', seat: winner, claim: 'win' });
+  return winner;
+}
+
+function playTwoSeatMatchToEnd() {
+  let g = newHand(
+    twoSeatConfig,
+    0,
+    'E',
+    [0, 0],
+    () => 0,
+    twoSeatProgressionWall(0),
+  );
+
+  nonDealerWins(g);
+  expect(g.phase).toBe('handEnd');
+  g = nextHand(g, () => 0, twoSeatProgressionWall(1));
+  expect([g.dealer, g.roundWind]).toEqual([1, 'E']);
+
+  nonDealerWins(g);
+  expect(g.phase).toBe('handEnd');
+  g = nextHand(g, () => 0, twoSeatProgressionWall(0));
+  expect([g.dealer, g.roundWind]).toEqual([0, 'S']);
+
+  nonDealerWins(g);
+  expect(g.phase).toBe('handEnd');
+  g = nextHand(g, () => 0, twoSeatProgressionWall(1));
+  expect([g.dealer, g.roundWind]).toEqual([1, 'S']);
+
+  nonDealerWins(g);
+  return g;
+}
+
+test('dealer rotation and wind advance through a two-seat match', () => {
+  const g = playTwoSeatMatchToEnd();
+  expect(g.phase).toBe('matchEnd');
+  expect(g.dealer).toBe(1);
+  expect(g.roundWind).toBe('S');
+
+  let nonZeroStart = newHand(
+    twoSeatConfig,
+    1,
+    'E',
+    [10, -10],
+    () => 0,
+    twoSeatProgressionWall(1),
+  );
+  nonDealerWins(nonZeroStart);
+  const carriedScores = nonZeroStart.seats.map(seat => seat.score);
+  nonZeroStart = nextHand(nonZeroStart, () => 0, twoSeatProgressionWall(0));
+  expect([nonZeroStart.startDealer, nonZeroStart.dealer, nonZeroStart.roundWind]).toEqual([1, 0, 'E']);
+  expect(nonZeroStart.seats.map(seat => seat.score)).toEqual(carriedScores);
+
+  nonDealerWins(nonZeroStart);
+  nonZeroStart = nextHand(nonZeroStart, () => 0, twoSeatProgressionWall(1));
+  expect([nonZeroStart.startDealer, nonZeroStart.dealer, nonZeroStart.roundWind]).toEqual([1, 1, 'S']);
+});
+
+test("length 'hand' ends after one hand", () => {
+  const g = fixedHand([H.a, H.b, H.c, H.d], 'b1', ['c9'], { length: 'hand' });
+  g.anyDiscard = true;
+
+  applyAction(g, { type: 'selfAction', seat: 0, action: 'win' });
+
+  expect(g.phase).toBe('matchEnd');
+});
+
+test('nextHand rejects a finished match', () => {
+  const g = playTwoSeatMatchToEnd();
+  expect(() => nextHand(g, () => 0, twoSeatProgressionWall(0))).toThrow(GameError);
 });

@@ -14,7 +14,7 @@ export interface HandResult {
 }
 export interface GameState {
   config: RoomConfig; seats: SeatState[]; wall: Tile[];
-  dealer: number; roundWind: Wind; turn: number;
+  dealer: number; startDealer: number; roundWind: Wind; turn: number;
   phase: 'discard'|'claims'|'handEnd'|'matchEnd';
   lastDiscard: { seat: number; tile: Tile }|null;
   pending: (PendingClaim|null)[]|null;
@@ -53,7 +53,7 @@ export function newHand(
   wall?: Tile[],
 ): GameState {
   const state: GameState = {
-    config, roundWind, dealer, turn: dealer, phase: 'discard',
+    config, roundWind, dealer, startDealer: dealer, turn: dealer, phase: 'discard',
     seats: Array.from({ length: config.seats }, (_, i) => ({
       hand: [], melds: [], flowers: [], discards: [], score: scores[i] ?? 0,
     })),
@@ -70,6 +70,41 @@ export function newHand(
   state.justDrew = fourteenth;
   for (const s of state.seats) s.hand = sortTiles(s.hand);
   return state;
+}
+
+function progressionAfter(state: GameState, winner: number | null) {
+  const dealerRepeats = winner === null || winner === state.dealer;
+  const dealer = dealerRepeats
+    ? state.dealer
+    : (state.dealer + 1) % state.config.seats;
+  const roundAdvances = !dealerRepeats && dealer === state.startDealer;
+  const winds = WINDS.slice(0, state.config.seats);
+  const windIndex = winds.indexOf(state.roundWind);
+  const roundWind = roundAdvances ? winds[windIndex + 1] : state.roundWind;
+  const matchOver = state.config.length === 'hand'
+    || (state.config.length === 'wind' && roundAdvances)
+    || (state.config.length === 'match' && roundAdvances && windIndex === winds.length - 1);
+  return { dealer, roundWind, matchOver };
+}
+
+export function nextHand(state: GameState, rng: () => number, wall?: Tile[]): GameState {
+  if (state.phase === 'matchEnd') throw new GameError('match is over');
+  if (state.phase !== 'handEnd' || state.result === null) throw new GameError('hand is not over');
+
+  const progression = progressionAfter(state, state.result.winner);
+  if (progression.matchOver || progression.roundWind === undefined)
+    throw new GameError('match is over');
+
+  const next = newHand(
+    state.config,
+    progression.dealer,
+    progression.roundWind,
+    state.seats.map(seat => seat.score),
+    rng,
+    wall,
+  );
+  next.startDealer = state.startDealer;
+  return next;
 }
 
 function winContext(state: GameState, seat: number, selfDraw: boolean, robbingGong = false): WinContext {
@@ -98,9 +133,50 @@ function endHand(
   winner: number | null,
   loser: number | null,
   winTile?: Tile,
+  robbing = false,
 ) {
-  state.phase = 'handEnd';
-  state.result = { winner, loser, payments: state.seats.map(() => 0), winTile };
+  state.phase = progressionAfter(state, winner).matchOver ? 'matchEnd' : 'handEnd';
+  const payments = state.seats.map(() => 0);
+
+  if (winner === null) {
+    state.result = { winner, loser, payments, winTile };
+    return;
+  }
+
+  const selfDraw = loser === null;
+  const seat = state.seats[winner];
+  const winningConcealed = selfDraw
+    ? [...seat.hand]
+    : sortTiles([...seat.hand, winTile!]);
+  const winningMelds = seat.melds.map(meld => ({ ...meld, tiles: [...meld.tiles] }));
+  const score = scoreHand(
+    winningConcealed,
+    seat.melds,
+    winContext(state, winner, selfDraw, robbing),
+  );
+  if (score === null) throw new GameError('winning hand could not be scored');
+
+  const base = 2 ** score.faan;
+  const total = base * (state.config.seats - 1);
+  payments[winner] = total;
+  if (selfDraw) {
+    for (let i = 0; i < payments.length; i++)
+      if (i !== winner) payments[i] = -base;
+  } else {
+    payments[loser!] = -total;
+  }
+  for (let i = 0; i < payments.length; i++) state.seats[i].score += payments[i];
+
+  state.result = {
+    winner,
+    loser,
+    faan: score.faan,
+    items: score.items,
+    payments,
+    winTile,
+    winningConcealed,
+    winningMelds,
+  };
 }
 
 function advanceTurn(state: GameState) {
@@ -241,7 +317,7 @@ function resolveClaims(state: GameState) {
 
     if (winning) {
       state.pending = null;
-      endHand(state, winning.seat, robbing.seat, robbing.tile);
+      endHand(state, winning.seat, robbing.seat, robbing.tile, true);
       state.robbing = null;
       return;
     }
