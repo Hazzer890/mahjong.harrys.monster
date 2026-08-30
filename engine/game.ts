@@ -376,6 +376,7 @@ export function applyAction(state: GameState, action: Action): GameState {
     const seat = state.seats[action.seat];
 
     if (action.action === 'win') {
+      if (state.justDrew === null) throw new GameError('no tile was drawn');
       const score = scoreHand(seat.hand, seat.melds, winContext(state, action.seat, true));
       if (!score || score.faan < state.config.minFaan)
         throw new GameError('self-draw win is not valid');

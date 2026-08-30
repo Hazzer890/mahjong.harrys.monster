@@ -81,6 +81,20 @@ test('pung claim: meld formed, claimant on turn, discard removed from pool', () 
   expect(g.phase).toBe('discard');
 });
 
+test('pung claimant cannot declare a self-draw win without drawing a tile', () => {
+  const claimedWin = [
+    'b9','b9','c1','c2','c3','c4','c5','c6','d1','d2','d3','wS','wS',
+  ];
+  const g = fixedHand([H.a, H.b, claimedWin, H.d], 'b9', ['b6']);
+  applyAction(g, { type: 'discard', seat: 0, tile: 'b9' });
+  applyAction(g, { type: 'pass', seat: 1 });
+  applyAction(g, { type: 'claim', seat: 2, claim: 'pung' });
+
+  const before = JSON.stringify(g);
+  expect(() => applyAction(g, { type: 'selfAction', seat: 2, action: 'win' })).toThrow(GameError);
+  expect(JSON.stringify(g)).toBe(before);
+});
+
 test('chow only from next seat, with chosen tiles', () => {
   const g = fixedHand([H.a, H.b, H.c, H.d], 'b4', ['b6','b7','b8','c9']);
   applyAction(g, { type: 'discard', seat: 0, tile: 'b4' });
@@ -274,6 +288,24 @@ test('added gong can be robbed for the win without touching the discard pile', (
   expect(g.result!.winTile).toBe('b9');
   expect(g.seats[2].melds[0].kind).toBe('pung');
   expect(g.seats.map(seat => seat.discards)).toEqual(discardsBeforeRob);
+});
+
+test('rob window omits seats below the room minimum faan', () => {
+  const highFaanRobHand = [
+    'b1','b2','b2','b2','b2','b3','b4','b5','b6','b7','b8','b9','b9',
+  ];
+  const g = fixedHand(
+    [H.a, highFaanRobHand, pungHand, H.d],
+    'b9',
+    ['wW','wW','wW','b9','c9'],
+    { minFaan: 9 },
+  );
+  walkSeatTwoToFourthB9(g, true);
+
+  applyAction(g, { type: 'selfAction', seat: 2, action: 'addedGong', tile: 'b9' });
+  expect(g.phase).toBe('claims');
+  expect(g.pending![1]).toEqual({ options: ['win'], chowTiles: [], response: null });
+  expect(g.pending![3]).toBeNull();
 });
 
 test('added gong with no robbers completes and draws replacement', () => {
