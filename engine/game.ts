@@ -1,5 +1,7 @@
 import { Tile, Wind, WINDS, buildWall, isFlower, sortTiles } from './tiles';
-import { Meld, canGongDiscard, canPung, chowOptions } from './hand';
+import {
+  Meld, addedGongOptions, canGongDiscard, canPung, chowOptions, concealedGongOptions,
+} from './hand';
 import { FaanItem, WinContext, scoreHand } from './faan';
 
 export interface RoomConfig { seats: number; length: 'hand'|'wind'|'match'; minFaan: number; timer: boolean }
@@ -169,7 +171,85 @@ function claimDistance(state: GameState, seat: number, discarder: number) {
   return (seat - discarder + state.config.seats) % state.config.seats;
 }
 
+function drawGongReplacement(state: GameState, seat: number) {
+  state.pending = null;
+  state.justDrew = null;
+  state.replacementDraw = false;
+
+  const tile = drawTile(state, seat, true);
+  if (tile === null) {
+    endHand(state, null, null);
+    return;
+  }
+
+  state.seats[seat].hand.push(tile);
+  state.seats[seat].hand = sortTiles(state.seats[seat].hand);
+  state.justDrew = tile;
+  state.replacementDraw = true;
+  state.phase = 'discard';
+}
+
+function completeAddedGong(state: GameState) {
+  const robbing = state.robbing!;
+  const seat = state.seats[robbing.seat];
+  const meldIndex = seat.melds.findIndex(meld =>
+    meld.kind === 'pung' && meld.tiles[0] === robbing.tile);
+  const pung = seat.melds[meldIndex];
+
+  removeTiles(seat.hand, [robbing.tile]);
+  seat.melds[meldIndex] = {
+    kind: 'gong',
+    tiles: [robbing.tile, robbing.tile, robbing.tile, robbing.tile],
+    from: pung.from,
+  };
+  state.anyCall = true;
+  state.turn = robbing.seat;
+  state.robbing = null;
+  drawGongReplacement(state, state.turn);
+}
+
+function openRobbingClaims(state: GameState, seat: number, tile: Tile) {
+  state.robbing = { seat, tile };
+  state.pending = state.seats.map((claimant, claimSeat): PendingClaim | null => {
+    if (claimSeat === seat) return null;
+    const score = scoreHand(
+      [...claimant.hand, tile],
+      claimant.melds,
+      winContext(state, claimSeat, false, true),
+    );
+    return score && score.faan >= state.config.minFaan
+      ? { options: ['win'], chowTiles: [], response: null }
+      : null;
+  });
+  state.phase = 'claims';
+
+  if (state.pending.every(claim => claim === null)) completeAddedGong(state);
+}
+
 function resolveClaims(state: GameState) {
+  if (state.robbing) {
+    const robbing = state.robbing;
+    const winning = state.pending!
+      .map((pending, seat) => ({ seat, response: pending?.response }))
+      .filter((entry): entry is {
+        seat: number;
+        response: { claim: ClaimType; tiles?: Tile[] };
+      } => entry.response !== null && entry.response !== undefined && entry.response !== 'pass')
+      .sort((a, b) => claimDistance(state, a.seat, robbing.seat)
+        - claimDistance(state, b.seat, robbing.seat))
+      .find(entry => entry.response.claim === 'win');
+
+    if (winning) {
+      state.pending = null;
+      endHand(state, winning.seat, robbing.seat, robbing.tile);
+      state.robbing = null;
+      return;
+    }
+
+    completeAddedGong(state);
+    return;
+  }
+
   const discarded = state.lastDiscard!;
   const responses = state.pending!
     .map((pending, seat) => ({ seat, pending, response: pending?.response }))
@@ -209,15 +289,8 @@ function resolveClaims(state: GameState) {
     state.replacementDraw = false;
 
     if (kind === 'gong') {
-      const tile = drawTile(state, setClaim.seat, true);
-      if (tile === null) {
-        endHand(state, null, null);
-        return;
-      }
-      hand.push(tile);
-      state.seats[setClaim.seat].hand = sortTiles(hand);
-      state.justDrew = tile;
-      state.replacementDraw = true;
+      drawGongReplacement(state, setClaim.seat);
+      return;
     }
     state.phase = 'discard';
     return;
@@ -248,7 +321,8 @@ function resolveClaims(state: GameState) {
 }
 
 function validateClaim(state: GameState, action: Extract<Action, { type: 'claim' }>) {
-  if (state.phase !== 'claims' || state.pending === null || state.lastDiscard === null)
+  if (state.phase !== 'claims' || state.pending === null
+    || (state.robbing === null && state.lastDiscard === null))
     throw new GameError('no claims are pending');
 
   const pending = state.pending[action.seat];
@@ -263,10 +337,11 @@ function validateClaim(state: GameState, action: Extract<Action, { type: 'claim'
   }
 
   if (action.claim === 'win') {
+    const tile = state.robbing?.tile ?? state.lastDiscard!.tile;
     const score = scoreHand(
-      [...state.seats[action.seat].hand, state.lastDiscard.tile],
+      [...state.seats[action.seat].hand, tile],
       state.seats[action.seat].melds,
-      winContext(state, action.seat, false),
+      winContext(state, action.seat, false, state.robbing !== null),
     );
     if (!score || score.faan < state.config.minFaan) throw new GameError('winning claim is not valid');
   }
@@ -295,6 +370,39 @@ export function applyAction(state: GameState, action: Action): GameState {
     return state;
   }
 
+  if (action.type === 'selfAction') {
+    if (state.phase !== 'discard') throw new GameError('cannot take a self action in this phase');
+    if (action.seat !== state.turn) throw new GameError('seat is not on turn');
+    const seat = state.seats[action.seat];
+
+    if (action.action === 'win') {
+      const score = scoreHand(seat.hand, seat.melds, winContext(state, action.seat, true));
+      if (!score || score.faan < state.config.minFaan)
+        throw new GameError('self-draw win is not valid');
+      endHand(state, action.seat, null, state.justDrew ?? undefined);
+      return state;
+    }
+
+    const tile = action.tile;
+    if (tile === undefined) throw new GameError('gong tile is required');
+
+    if (action.action === 'concealedGong') {
+      if (!concealedGongOptions(seat.hand).includes(tile))
+        throw new GameError('concealed gong is not available');
+
+      removeTiles(seat.hand, [tile, tile, tile, tile]);
+      seat.melds.push({ kind: 'concealedGong', tiles: [tile, tile, tile, tile], from: null });
+      state.anyCall = true;
+      drawGongReplacement(state, action.seat);
+      return state;
+    }
+
+    if (!addedGongOptions(seat.hand, seat.melds).includes(tile))
+      throw new GameError('added gong is not available');
+    openRobbingClaims(state, action.seat, tile);
+    return state;
+  }
+
   if (action.type === 'claim') {
     const pending = validateClaim(state, action);
     pending.response = { claim: action.claim, tiles: action.tiles };
@@ -313,5 +421,5 @@ export function applyAction(state: GameState, action: Action): GameState {
     return state;
   }
 
-  throw new GameError('self actions are not implemented');
+  throw new GameError('unknown action');
 }

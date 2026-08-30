@@ -201,3 +201,142 @@ test('empty wall ends the hand after a gong claim', () => {
   expect(gong.result!.winner).toBeNull();
   expect(gong.result!.loser).toBeNull();
 });
+
+const fourB1 = ['b1','b1','b1','b1','c1','c2','c3','d1','d2','d3','wE','wE','wS'];
+const addedGongJunk = ['c1','c1','c4','c4','c7','c7','d1','d1','d4','d4','wE','wS','wW'];
+
+function walkSeatTwoToFourthB9(g: ReturnType<typeof fixedHand>, seatOnePasses: boolean) {
+  applyAction(g, { type: 'discard', seat: 0, tile: 'b9' });
+  if (seatOnePasses) applyAction(g, { type: 'pass', seat: 1 });
+  applyAction(g, { type: 'claim', seat: 2, claim: 'pung' });
+
+  applyAction(g, { type: 'discard', seat: 2, tile: 'dG' });
+  applyAction(g, { type: 'pass', seat: 3 });
+  applyAction(g, { type: 'discard', seat: 3, tile: 'wW' });
+  applyAction(g, { type: 'discard', seat: 0, tile: 'wW' });
+  applyAction(g, { type: 'discard', seat: 1, tile: 'wW' });
+
+  expect(g.turn).toBe(2);
+  expect(g.justDrew).toBe('b9');
+}
+
+test('concealed gong draws its replacement from the wall tail and keeps the turn', () => {
+  const g = fixedHand([fourB1, H.b, H.c, H.d], 'wS', ['b6','b7','b8','c9']);
+  applyAction(g, { type: 'selfAction', seat: 0, action: 'concealedGong', tile: 'b1' });
+
+  expect(g.seats[0].melds).toEqual([{
+    kind: 'concealedGong', tiles: ['b1','b1','b1','b1'], from: null,
+  }]);
+  expect(g.seats[0].hand).not.toContain('b1');
+  expect(g.seats[0].hand).toContain('c9');
+  expect(g.wall).toEqual(['b6','b7','b8']);
+  expect(g.turn).toBe(0);
+  expect(g.phase).toBe('discard');
+  expect(g.justDrew).toBe('c9');
+  expect(g.replacementDraw).toBe(true);
+  expect(g.anyCall).toBe(true);
+});
+
+test('replacement draw flag clears after the gong player discards and play draws normally', () => {
+  const g = fixedHand([fourB1, H.b, H.c, addedGongJunk], 'wS', ['b6','b7','b8','c9']);
+  applyAction(g, { type: 'selfAction', seat: 0, action: 'concealedGong', tile: 'b1' });
+  expect(g.replacementDraw).toBe(true);
+
+  applyAction(g, { type: 'discard', seat: 0, tile: 'c9' });
+  expect(g.turn).toBe(1);
+  expect(g.justDrew).toBe('b6');
+  expect(g.replacementDraw).toBe(false);
+});
+
+test('concealed gong with an empty wall ends the hand as goulash', () => {
+  const g = fixedHand([fourB1, H.b, H.c, H.d], 'wS', []);
+  applyAction(g, { type: 'selfAction', seat: 0, action: 'concealedGong', tile: 'b1' });
+  expect(g.phase).toBe('handEnd');
+  expect(g.result!.winner).toBeNull();
+  expect(g.result!.loser).toBeNull();
+});
+
+test('added gong can be robbed for the win without touching the discard pile', () => {
+  const g = fixedHand([H.a, winHand, pungHand, H.d], 'b9', ['wW','wW','wW','b9','c9']);
+  walkSeatTwoToFourthB9(g, true);
+
+  applyAction(g, { type: 'selfAction', seat: 2, action: 'addedGong', tile: 'b9' });
+  expect(g.phase).toBe('claims');
+  expect(g.robbing).toEqual({ seat: 2, tile: 'b9' });
+  expect(g.pending![1]).toEqual({ options: ['win'], chowTiles: [], response: null });
+  expect(g.pending!.filter(Boolean).length).toBe(1);
+  const discardsBeforeRob = g.seats.map(seat => [...seat.discards]);
+
+  applyAction(g, { type: 'claim', seat: 1, claim: 'win' });
+  expect(g.phase).toBe('handEnd');
+  expect(g.result!.winner).toBe(1);
+  expect(g.result!.loser).toBe(2);
+  expect(g.result!.winTile).toBe('b9');
+  expect(g.seats[2].melds[0].kind).toBe('pung');
+  expect(g.seats.map(seat => seat.discards)).toEqual(discardsBeforeRob);
+});
+
+test('added gong with no robbers completes and draws replacement', () => {
+  const g = fixedHand([H.a, addedGongJunk, pungHand, H.d], 'b9', ['wW','wW','wW','b9','c9']);
+  walkSeatTwoToFourthB9(g, false);
+
+  applyAction(g, { type: 'selfAction', seat: 2, action: 'addedGong', tile: 'b9' });
+  expect(g.seats[2].melds[0]).toEqual({
+    kind: 'gong', tiles: ['b9','b9','b9','b9'], from: 0,
+  });
+  expect(g.seats[2].hand).not.toContain('b9');
+  expect(g.seats[2].hand).toContain('c9');
+  expect(g.wall).toEqual([]);
+  expect(g.turn).toBe(2);
+  expect(g.phase).toBe('discard');
+  expect(g.justDrew).toBe('c9');
+  expect(g.replacementDraw).toBe(true);
+  expect(g.robbing).toBeNull();
+});
+
+test('passing a rob prompt completes the added gong', () => {
+  const g = fixedHand([H.a, winHand, pungHand, H.d], 'b9', ['wW','wW','wW','b9','c9']);
+  walkSeatTwoToFourthB9(g, true);
+  applyAction(g, { type: 'selfAction', seat: 2, action: 'addedGong', tile: 'b9' });
+
+  applyAction(g, { type: 'pass', seat: 1 });
+  expect(g.seats[2].melds[0].kind).toBe('gong');
+  expect(g.turn).toBe(2);
+  expect(g.phase).toBe('discard');
+  expect(g.justDrew).toBe('c9');
+  expect(g.replacementDraw).toBe(true);
+  expect(g.robbing).toBeNull();
+});
+
+test('self-draw win ends the hand with the tile just drawn', () => {
+  const g = fixedHand([H.a, H.b, H.c, H.d], 'b1', ['c9']);
+  g.anyDiscard = true;
+  applyAction(g, { type: 'selfAction', seat: 0, action: 'win' });
+  expect(g.phase).toBe('handEnd');
+  expect(g.result!.winner).toBe(0);
+  expect(g.result!.loser).toBeNull();
+  expect(g.result!.winTile).toBe('b1');
+});
+
+test('self-draw win below min faan is rejected without changing state', () => {
+  const g = fixedHand([H.a, H.b, H.c, H.d], 'b1', ['c9'], { minFaan: 3 });
+  g.anyDiscard = true;
+  const before = JSON.stringify(g);
+  expect(() => applyAction(g, { type: 'selfAction', seat: 0, action: 'win' })).toThrow(GameError);
+  expect(JSON.stringify(g)).toBe(before);
+});
+
+test('invalid gong self actions are rejected without changing state', () => {
+  const g = fixedHand([H.a, H.b, H.c, H.d], 'd9', ['c9']);
+  const before = JSON.stringify(g);
+  expect(() => applyAction(g, {
+    type: 'selfAction', seat: 1, action: 'concealedGong', tile: 'b5',
+  })).toThrow(GameError);
+  expect(() => applyAction(g, {
+    type: 'selfAction', seat: 0, action: 'concealedGong', tile: 'b1',
+  })).toThrow(GameError);
+  expect(() => applyAction(g, {
+    type: 'selfAction', seat: 0, action: 'addedGong', tile: 'b1',
+  })).toThrow(GameError);
+  expect(JSON.stringify(g)).toBe(before);
+});
