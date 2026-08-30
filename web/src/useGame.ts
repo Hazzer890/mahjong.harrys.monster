@@ -87,6 +87,7 @@ export function useGame(): GameConn {
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data) as ServerMsg;
         if (msg.t === 'joined') {
+          lastSeqRef.current = 0;
           setSeat(msg.seat);
           writeStored({ code: msg.code, token: msg.token, name: nameRef.current });
         } else if (msg.t === 'snapshot') {
@@ -100,9 +101,13 @@ export function useGame(): GameConn {
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         setConnected(false);
         if (cancelled) return;
+        if (event.reason === 'reconnected') {
+          setError('This room is open in another tab.');
+          return;
+        }
         const delay = backoffRef.current;
         backoffRef.current = Math.min(delay * 2, 10000);
         reconnectTimer = setTimeout(() => connect(false), delay);

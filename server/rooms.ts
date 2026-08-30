@@ -33,12 +33,20 @@ export interface Room {
   wallSeed?: number;
 }
 
+const DEFAULT_MAX_ROOMS = 5000;
+
 export class Rooms {
   private rooms = new Map<string, Room>();
+  private readonly maxRooms: number;
+
+  constructor(maxRooms: number = DEFAULT_MAX_ROOMS) {
+    this.maxRooms = maxRooms;
+  }
 
   createRoom(name: string, config: RoomConfig): { room: Room; player: Player } {
     const validatedName = this.validateName(name);
     this.validateConfig(config);
+    if (this.rooms.size >= this.maxRooms) throw new Error('server is full');
 
     const player: Player = {
       token: crypto.randomUUID(),

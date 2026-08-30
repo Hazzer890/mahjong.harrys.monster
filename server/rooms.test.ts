@@ -52,6 +52,13 @@ test('start rejects replacing a game that has already started', () => {
   expect(room.seq).toBe(seq);
 });
 
+test('createRoom rejects once the room cap is reached', () => {
+  const rooms = new Rooms(2);
+  rooms.createRoom('a', cfg);
+  rooms.createRoom('b', cfg);
+  expect(() => rooms.createRoom('c', cfg)).toThrow(/full/);
+});
+
 test('create and join reject invalid player names', () => {
   const rooms = new Rooms();
 
