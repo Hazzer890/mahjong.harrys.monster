@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { GameConn } from './useGame';
 import type { View } from '../../server/protocol';
 import type { ClaimType } from '../../engine/game';
@@ -17,6 +17,14 @@ export function seatPosition(offset: number, n: number): 'right' | 'top' | 'left
 
 export default function Table({ conn, view }: { conn: GameConn; view: View }) {
   const [selected, setSelected] = useState<number | null>(null);
+
+  // The hand array is reassigned whenever it actually changes (draw, discard, gong,
+  // or a brand new hand) — never merely because it's now someone else's turn — so a
+  // tile selected earlier (this turn, a prior turn, or a prior hand) can't survive
+  // to be discarded by a single stray tap on the newly-rendered hand.
+  useEffect(() => {
+    setSelected(null);
+  }, [view.game?.hand]);
 
   if (view.phase === 'paused') {
     const disconnected = view.seats.filter(s => !s.connected).map(s => s.name);
@@ -47,6 +55,7 @@ export default function Table({ conn, view }: { conn: GameConn; view: View }) {
   }
 
   function selfAction(action: 'win' | 'concealedGong' | 'addedGong', tile?: Tile) {
+    setSelected(null);
     conn.send({ t: 'action', action: { type: 'selfAction', action, tile } });
   }
 
