@@ -412,6 +412,17 @@ test('self-draw payments: everyone pays', () => {
   expect(g.seats.map(seat => seat.score)).toEqual([12, -4, -4, -4]);
 });
 
+test('dealer initial self-draw scores heavenly hand at the limit', () => {
+  const g = fixedHand([H.a, H.b, H.c, H.d], 'b1', ['c9']);
+
+  applyAction(g, { type: 'selfAction', seat: 0, action: 'win' });
+
+  expect(g.result!.faan).toBe(13);
+  expect(g.result!.items).toContainEqual({ name: 'Heavenly hand', faan: 13 });
+  expect(g.result!.payments).toEqual([24576, -8192, -8192, -8192]);
+  expect(g.seats.map(seat => seat.score)).toEqual([24576, -8192, -8192, -8192]);
+});
+
 test('goulash: no payments and dealer repeats in the next hand', () => {
   const g = fixedHand(
     [H.a, H.b, H.c, H.d],

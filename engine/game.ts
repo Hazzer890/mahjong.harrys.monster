@@ -135,10 +135,10 @@ function endHand(
   winTile?: Tile,
   robbing = false,
 ) {
-  state.phase = progressionAfter(state, winner).matchOver ? 'matchEnd' : 'handEnd';
   const payments = state.seats.map(() => 0);
 
   if (winner === null) {
+    state.phase = progressionAfter(state, winner).matchOver ? 'matchEnd' : 'handEnd';
     state.result = { winner, loser, payments, winTile };
     return;
   }
@@ -156,6 +156,7 @@ function endHand(
   );
   if (score === null) throw new GameError('winning hand could not be scored');
 
+  state.phase = progressionAfter(state, winner).matchOver ? 'matchEnd' : 'handEnd';
   const base = 2 ** score.faan;
   const total = base * (state.config.seats - 1);
   payments[winner] = total;
