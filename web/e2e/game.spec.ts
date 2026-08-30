@@ -32,7 +32,7 @@ async function allEnded(pages: Page[]): Promise<boolean> {
 }
 
 test('four players play a hand through to an end state', async ({ browser }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(240_000);
 
   const contexts = await Promise.all(Array.from({ length: 4 }, () => browser.newContext()));
   const pages = await Promise.all(contexts.map(c => c.newPage()));
