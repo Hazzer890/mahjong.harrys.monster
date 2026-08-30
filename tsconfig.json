@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "strict": true, "target": "esnext", "module": "esnext",
+    "moduleResolution": "bundler", "types": ["bun-types"],
+    "jsx": "react-jsx", "noEmit": true
+  }
+}
