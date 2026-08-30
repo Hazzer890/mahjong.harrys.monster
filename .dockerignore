@@ -1,0 +1,8 @@
+node_modules
+web/dist
+web/node_modules
+.superpowers
+docs
+web/test-results
+web/playwright-report
+.git
