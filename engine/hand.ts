@@ -50,3 +50,23 @@ export function decompose(concealed: Tile[], meldCount: number): Decomp[] {
 
 export const isWinning = (concealed: Tile[], meldCount: number) =>
   decompose(concealed, meldCount).length > 0;
+
+const count = (hand: Tile[], t: Tile) => hand.filter(x => x === t).length;
+export const canPung = (hand: Tile[], t: Tile) => count(hand, t) >= 2;
+export const canGongDiscard = (hand: Tile[], t: Tile) => count(hand, t) >= 3;
+
+export function chowOptions(hand: Tile[], t: Tile): Tile[][] {
+  if (isHonor(t)) return [];
+  const s = suit(t), r = rank(t);
+  const has = (n: number) => n >= 1 && n <= 9 && hand.includes(s + n);
+  const opts: Tile[][] = [];
+  if (has(r - 2) && has(r - 1)) opts.push([s + (r - 2), s + (r - 1)]);
+  if (has(r - 1) && has(r + 1)) opts.push([s + (r - 1), s + (r + 1)]);
+  if (has(r + 1) && has(r + 2)) opts.push([s + (r + 1), s + (r + 2)]);
+  return opts;
+}
+
+export const concealedGongOptions = (hand: Tile[]) =>
+  [...new Set(hand)].filter(t => count(hand, t) === 4);
+export const addedGongOptions = (hand: Tile[], melds: Meld[]) =>
+  melds.filter(m => m.kind === 'pung' && hand.includes(m.tiles[0])).map(m => m.tiles[0]);

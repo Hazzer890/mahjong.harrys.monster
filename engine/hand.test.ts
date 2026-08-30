@@ -25,3 +25,24 @@ test('ambiguous hand yields multiple decompositions', () => {
   const d = decompose(['b1','b1','b1','b2','b2','b2','b3','b3','b3','c4','c5','c6','d8','d8'], 0);
   expect(d.length).toBeGreaterThan(1); // 111/222/333 as pungs OR 123×3 as chows
 });
+
+import { canPung, canGongDiscard, chowOptions, concealedGongOptions, addedGongOptions } from './hand';
+
+test('pung/gong eligibility', () => {
+  expect(canPung(['b1','b1','c3'], 'b1')).toBe(true);
+  expect(canPung(['b1','c3'], 'b1')).toBe(false);
+  expect(canGongDiscard(['b1','b1','b1'], 'b1')).toBe(true);
+  expect(canGongDiscard(['b1','b1'], 'b1')).toBe(false);
+});
+
+test('chowOptions returns every window, suited only', () => {
+  expect(chowOptions(['b1','b2','b4','b5'], 'b3').sort()).toEqual(
+    [['b1','b2'],['b2','b4'],['b4','b5']].sort());
+  expect(chowOptions(['wE','wS'], 'wW')).toEqual([]);
+  expect(chowOptions(['b8','b9'], 'b7')).toEqual([['b8','b9']]);
+});
+
+test('concealed and added gong options', () => {
+  expect(concealedGongOptions(['b1','b1','b1','b1','c2'])).toEqual(['b1']);
+  expect(addedGongOptions(['d5','c1'], [{ kind:'pung', tiles:['d5','d5','d5'], from:1 }])).toEqual(['d5']);
+});
