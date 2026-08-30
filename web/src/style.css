@@ -96,3 +96,191 @@ button:disabled {
 
 .dot.on { background: #27ae60; }
 .dot.off { background: #bbb; }
+
+/* Table */
+
+.table {
+  display: grid;
+  grid-template-columns: minmax(50px, 1fr) minmax(0, 3fr) minmax(50px, 1fr);
+  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-areas:
+    "info info info"
+    "top top top"
+    "left center right"
+    "left center right"
+    "bottom bottom bottom";
+  gap: 0.5rem;
+  min-height: 100vh;
+  padding: 0.5rem;
+  padding-bottom: 5rem;
+}
+
+.table-info-col {
+  grid-area: info;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.table-info { text-align: center; font-size: 0.85rem; }
+
+.tile {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.tile--clickable { cursor: pointer; }
+
+.tile--clickable > svg > rect:first-child,
+.tile--selected > svg > rect:first-child {
+  transition: transform 0.1s;
+}
+
+.tile--selected {
+  transform: translateY(-8px);
+}
+
+.tile-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.seat {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0.4rem;
+  overflow-x: auto;
+}
+
+.seat--top { grid-area: top; }
+.seat--left { grid-area: left; }
+.seat--right { grid-area: right; }
+.seat--bottom { grid-area: bottom; }
+
+.seat--turn { border-color: #2d6cdf; box-shadow: 0 0 0 2px #2d6cdf33; }
+
+.seat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+
+.seat-name { font-weight: 600; }
+.seat-wind, .seat-score { margin-left: auto; }
+.seat-score { margin-left: 0.4rem; }
+
+.melds, .flowers {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.meld { display: flex; }
+
+.center-area {
+  grid-area: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow: auto;
+}
+
+.discard-pile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  border: 2px solid;
+  border-radius: 6px;
+  padding: 0.3rem;
+  min-height: 2rem;
+}
+
+.hand-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+
+.just-drew {
+  border-left: 2px dashed #999;
+  padding-left: 0.75rem;
+}
+
+.self-actions, .claim-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #fff;
+  border-top: 1px solid #ddd;
+  z-index: 10;
+}
+
+.self-actions button, .claim-bar button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 3rem;
+  min-width: 3rem;
+  font-size: 1rem;
+}
+
+.claim-bar .pass { background: #888; margin-left: auto; }
+
+.rob-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: center;
+  background: #fff3cd;
+  border-radius: 6px;
+  padding: 0.3rem;
+}
+
+.error-strip {
+  background: #f8d7da;
+  color: #c0392b;
+  text-align: center;
+  padding: 0.3rem;
+  border-radius: 6px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 1rem;
+}
+
+.overlay-panel {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.overlay-panel pre {
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+  background: #f4f4f4;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
