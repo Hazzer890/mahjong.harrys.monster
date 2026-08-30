@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { RoomConfig } from '../../engine/game';
 import { parseRoomPath, type GameConn } from './useGame';
+import { TileRow } from './tiles';
 
 const LENGTHS: { value: RoomConfig['length']; label: string }[] = [
   { value: 'hand', label: 'Single hand' },
@@ -20,9 +21,21 @@ export default function Home({ conn }: { conn: GameConn }) {
 
   return (
     <div className="page">
-      <h1>Mahjong</h1>
+      <header className="page-head">
+        <div>
+          <p className="eyebrow"><span className="cjk">麻雀</span> · Hong Kong old style</p>
+          <h1>Mahjong</h1>
+          <p className="tagline">
+            Two to four seats, your own minimum faan. Make a room, send the link, deal.
+          </p>
+        </div>
+        <div className="head-tiles" aria-hidden="true">
+          <TileRow tiles={['b1', 'd5', 'c3', 'wE', 'dR']} size="md" />
+        </div>
+      </header>
       {conn.error && <p className="error">{conn.error}</p>}
 
+      <div className="forms">
       <form
         className="panel"
         onSubmit={e => {
@@ -81,6 +94,7 @@ export default function Home({ conn }: { conn: GameConn }) {
         </label>
         <button type="submit" disabled={!joinName.trim() || code.length !== 4}>Join</button>
       </form>
+      </div>
     </div>
   );
 }

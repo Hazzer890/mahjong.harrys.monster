@@ -86,6 +86,19 @@ function FaceContent({ t }: { t: Tile }) {
   return <text x="50" y="85" textAnchor="middle" fontSize="46" fill="#8e24aa" fontFamily="'Noto Serif SC', serif">{FLOWER_CHARS[Number(r) - 1]}</text>;
 }
 
+const SUIT_NAMES: Record<string, string> = { b: 'bamboo', c: 'characters', d: 'dots' };
+const WIND_NAMES: Record<string, string> = { E: 'east', S: 'south', W: 'west', N: 'north' };
+const DRAGON_NAMES: Record<string, string> = { R: 'red', G: 'green', W: 'white' };
+
+// A clickable tile is a button, and a button needs a name a screen reader can read.
+export function tileName(t: Tile): string {
+  const kind = kindOf(t);
+  if (kind === 'wind') return `${WIND_NAMES[t.slice(1)]} wind`;
+  if (kind === 'dragon') return `${DRAGON_NAMES[t.slice(1)]} dragon`;
+  if (kind === 'flower') return `flower ${t[1]}`;
+  return `${t[1]} ${SUIT_NAMES[kind]}`;
+}
+
 export function TileFace({
   t, size = 'md', selected = false, onClick,
 }: { t: Tile; size?: TileSize; selected?: boolean; onClick?: () => void }) {
@@ -95,7 +108,10 @@ export function TileFace({
       className={`tile${selected ? ' tile--selected' : ''}${onClick ? ' tile--clickable' : ''}`}
       style={{ width: w, height: w * RATIO }}
       onClick={onClick}
+      onKeyDown={onClick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       role={onClick ? 'button' : undefined}
+      aria-label={onClick ? tileName(t) : undefined}
+      aria-pressed={onClick ? selected : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
       <svg viewBox="0 0 100 140" width="100%" height="100%">
@@ -111,8 +127,8 @@ export function TileBack({ size = 'md' }: { size?: TileSize }) {
   return (
     <span className="tile" style={{ width: w, height: w * RATIO }}>
       <svg viewBox="0 0 100 140" width="100%" height="100%">
-        <rect x="2" y="2" width="96" height="136" rx="8" fill="#2d6cdf" stroke="#1a4fad" strokeWidth="2" />
-        <rect x="14" y="14" width="72" height="112" rx="4" fill="none" stroke="#5c8ce8" strokeWidth="2" />
+        <rect x="2" y="2" width="96" height="136" rx="8" fill="#1f5c46" stroke="#123125" strokeWidth="2" />
+        <rect x="14" y="14" width="72" height="112" rx="4" fill="none" stroke="#37876a" strokeWidth="2" />
       </svg>
     </span>
   );

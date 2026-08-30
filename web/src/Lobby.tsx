@@ -9,7 +9,12 @@ export default function Lobby({ conn, view }: { conn: GameConn; view: View }) {
 
   return (
     <div className="page">
-      <h1>Room {view.code}</h1>
+      <p className="eyebrow">Room</p>
+      <h1 className="room-code">{view.code}</h1>
+      <p className="tagline">
+        {view.seats.length} of {view.config.seats} seated · minimum {view.config.minFaan} faan
+        {view.config.timer ? ' · 20s turn timer' : ''}
+      </p>
       {conn.error && <p className="error">{conn.error}</p>}
 
       <div className="panel">
@@ -36,12 +41,16 @@ export default function Lobby({ conn, view }: { conn: GameConn; view: View }) {
       </div>
 
       <ul className="panel seat-list">
-        {view.seats.map((s, i) => (
-          <li key={i}>
-            <span className={`dot ${s.connected ? 'on' : 'off'}`} />
-            {s.name} {i === view.you && '(You)'}
-          </li>
-        ))}
+        {Array.from({ length: view.config.seats }, (_, i) => {
+          const seat = view.seats[i];
+          if (!seat) return <li key={i} className="is-empty"><span className="dot off" />Empty seat</li>;
+          return (
+            <li key={i}>
+              <span className={`dot ${seat.connected ? 'on' : 'off'}`} />
+              {seat.name} {i === view.you && '(You)'}
+            </li>
+          );
+        })}
       </ul>
 
       <div className="panel">
@@ -51,7 +60,7 @@ export default function Lobby({ conn, view }: { conn: GameConn; view: View }) {
               Start
             </button>
             )
-          : <p>Waiting for host to start&hellip;</p>}
+          : <p className="muted-note">Waiting for the host to start&hellip;</p>}
       </div>
     </div>
   );

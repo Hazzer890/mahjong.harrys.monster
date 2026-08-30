@@ -16,7 +16,7 @@ export default function Seat({
         <span className={`dot ${seat.connected ? 'on' : 'off'}`} />
         <span className="seat-name">{seat.name}</span>
         <span className="seat-wind">{wind}</span>
-        <span className="seat-score">{seat.score}</span>
+        <span className="seat-score num">{seat.score}</span>
       </div>
       <TileBackRow count={seat.handCount} size="sm" />
       {seat.melds.length > 0 && (
