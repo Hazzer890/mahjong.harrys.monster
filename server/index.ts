@@ -60,11 +60,15 @@ export function startServer(port: number): ReturnType<typeof Bun.serve> {
       if (!player.connected) continue;
       const socket = sockets.get(player.token);
       if (socket?.data.code !== room.code) continue;
-      send(socket, {
-        t: 'snapshot',
-        seq: room.seq,
-        view: buildView(room, player.seat),
-      });
+      try {
+        send(socket, {
+          t: 'snapshot',
+          seq: room.seq,
+          view: buildView(room, player.seat),
+        });
+      } catch {
+        // A dead socket must not prevent snapshots reaching the rest of the room.
+      }
     }
   };
 
@@ -74,6 +78,16 @@ export function startServer(port: number): ReturnType<typeof Bun.serve> {
     token: string,
   ): void => {
     if (ws.data.token && sockets.get(ws.data.token) === ws) sockets.delete(ws.data.token);
+    if (ws.data.token && ws.data.token !== token) {
+      const oldCode = ws.data.code;
+      try {
+        rooms.disconnect(oldCode, ws.data.token);
+      } catch {
+        // The old room may already have expired during a sweep.
+      }
+      const oldRoom = rooms.get(oldCode);
+      if (oldRoom) broadcast(oldRoom);
+    }
     const replaced = sockets.get(token);
     ws.data = { code: room.code, token };
     sockets.set(token, ws);
@@ -102,7 +116,6 @@ export function startServer(port: number): ReturnType<typeof Bun.serve> {
       return serveStatic(url.pathname);
     },
     websocket: {
-      data: {} as SocketData,
       message(ws, data) {
         try {
           const text = typeof data === 'string' ? data : data.toString();
@@ -138,6 +151,8 @@ export function startServer(port: number): ReturnType<typeof Bun.serve> {
             requireHost(ws, room);
             rooms.act(room, ws.data.token, { type: 'nextHand' });
           } else if (message.t === 'action') {
+            if (message.action?.type === 'nextHand')
+              throw new Error('only the host can do that');
             rooms.act(room, ws.data.token, message.action as Parameters<Rooms['act']>[2]);
           } else {
             throw new Error('unknown message type');

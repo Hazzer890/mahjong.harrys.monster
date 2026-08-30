@@ -39,6 +39,35 @@ test('start deals a game; act routes by token; paused room rejects actions', () 
   expect(room.seq).toBeGreaterThan(0);
 });
 
+test('start rejects replacing a game that has already started', () => {
+  const rooms = new Rooms();
+  const { room } = rooms.createRoom('harry', cfg);
+  rooms.join(room.code, 'gus');
+  rooms.start(room, () => 0.42);
+  const game = room.game;
+  const seq = room.seq;
+
+  expect(() => rooms.start(room, () => 0.75)).toThrow('game already started');
+  expect(room.game).toBe(game);
+  expect(room.seq).toBe(seq);
+});
+
+test('create and join reject invalid player names', () => {
+  const rooms = new Rooms();
+
+  expect(() => rooms.createRoom('   ', cfg)).toThrow(/name/i);
+  expect(() => rooms.createRoom('x'.repeat(25), cfg)).toThrow(/name/i);
+  expect(() => rooms.createRoom(42 as unknown as string, cfg)).toThrow(/name/i);
+
+  const { room } = rooms.createRoom('harry', cfg);
+  expect(() => rooms.join(room.code, '', undefined)).toThrow(/name/i);
+  expect(() => rooms.join(room.code, ' x '.repeat(9), undefined)).toThrow(/name/i);
+  expect(() => rooms.join(room.code, null as unknown as string, undefined)).toThrow(/name/i);
+
+  const { player } = rooms.join(room.code, `${' '.repeat(1_000)}gus   `);
+  expect(player.name).toBe('gus');
+});
+
 test('sweep deletes idle rooms', () => {
   const rooms = new Rooms();
   const { room } = rooms.createRoom('harry', cfg);

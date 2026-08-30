@@ -49,6 +49,7 @@ export interface View {
     roundWind: Wind;
     turn: number;
     lastDiscard: { seat: number; tile: Tile } | null;
+    robbing: { seat: number; tile: Tile } | null;
     prompt: null | { options: ClaimType[]; chowTiles: Tile[][] };
     result: HandResult | null;
   };
@@ -73,7 +74,11 @@ export function buildView(room: Room, seat: number): View {
       name: player.name,
       connected: player.connected,
       handCount: state?.hand.length ?? 0,
-      melds: state?.melds ?? [],
+      melds: player.seat === seat
+        ? state?.melds ?? []
+        : (state?.melds ?? []).map(meld => meld.kind === 'concealedGong'
+          ? { ...meld, tiles: [] }
+          : meld),
       flowers: state?.flowers ?? [],
       discards: state?.discards ?? [],
       score: state?.score ?? 0,
@@ -113,6 +118,7 @@ export function buildView(room: Room, seat: number): View {
       roundWind: game.roundWind,
       turn: game.turn,
       lastDiscard: game.lastDiscard,
+      robbing: game.robbing,
       prompt,
       result: hasResult ? game.result : null,
     },

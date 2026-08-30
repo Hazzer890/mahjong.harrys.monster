@@ -75,6 +75,33 @@ test('buildView exposes an unanswered prompt only to its claimant', () => {
   expect(buildView(room, 1).game?.prompt).toBeNull();
 });
 
+test('buildView hides concealed gong tiles from opponents but shows them to the owner', () => {
+  const room = gameRoom();
+  const tile = room.game!.seats[0].hand[0];
+  room.game!.seats[0].melds.push({
+    kind: 'concealedGong',
+    tiles: [tile, tile, tile, tile],
+    from: null,
+  });
+
+  expect(buildView(room, 0).seats[0].melds[0].tiles).toEqual([tile, tile, tile, tile]);
+  expect(buildView(room, 1).seats[0].melds[0].tiles).toEqual([]);
+});
+
+test('buildView exposes the public robbing tile during an added-gong claim window', () => {
+  const room = gameRoom();
+  const tile = room.game!.seats[0].hand[0];
+  room.game!.phase = 'claims';
+  room.game!.robbing = { seat: 0, tile };
+  room.game!.pending = [null, {
+    options: ['win'],
+    chowTiles: [],
+    response: null,
+  }];
+
+  expect(buildView(room, 1).game?.robbing).toEqual({ seat: 0, tile });
+});
+
 test('buildView reports paused while any seated player is disconnected', () => {
   const room = gameRoom();
   room.players[1].connected = false;

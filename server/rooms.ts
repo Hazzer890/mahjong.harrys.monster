@@ -37,11 +37,12 @@ export class Rooms {
   private rooms = new Map<string, Room>();
 
   createRoom(name: string, config: RoomConfig): { room: Room; player: Player } {
+    const validatedName = this.validateName(name);
     this.validateConfig(config);
 
     const player: Player = {
       token: crypto.randomUUID(),
-      name,
+      name: validatedName,
       seat: 0,
       connected: true,
     };
@@ -62,6 +63,7 @@ export class Rooms {
   }
 
   join(code: string, name: string, token?: string): { room: Room; player: Player } {
+    const validatedName = this.validateName(name);
     const room = this.rooms.get(code);
     if (!room) throw new Error('room not found');
 
@@ -79,7 +81,7 @@ export class Rooms {
 
     const player: Player = {
       token: crypto.randomUUID(),
-      name,
+      name: validatedName,
       seat: room.players.length,
       connected: true,
     };
@@ -93,6 +95,7 @@ export class Rooms {
   }
 
   start(room: Room, rng: () => number = Math.random): void {
+    if (room.game !== null) throw new Error('game already started');
     if (room.players.length !== room.config.seats)
       throw new Error('room does not have the required players');
 
@@ -176,6 +179,15 @@ export class Rooms {
   private touch(room: Room): void {
     room.seq++;
     room.lastActivity = Date.now();
+  }
+
+  private validateName(name: string): string {
+    if (typeof name !== 'string')
+      throw new Error('name must be a string from 1 to 24 characters');
+    const trimmed = name.trim();
+    if (trimmed.length < 1 || trimmed.length > 24)
+      throw new Error('name must be a string from 1 to 24 characters');
+    return trimmed;
   }
 
   private validateConfig(config: RoomConfig): void {

@@ -106,7 +106,7 @@ test('websocket room flow filters views, authorizes hosts, and reconnects seats'
     host.send({
       t: 'create',
       name: 'Harry',
-      config: { seats: 2, length: 'hand', minFaan: 0, timer: false },
+      config: { seats: 2, length: 'wind', minFaan: 0, timer: false },
       wallSeed: 4788,
     });
     const hostJoined = await host.next(isJoined);
@@ -158,9 +158,23 @@ test('websocket room flow filters views, authorizes hosts, and reconnects seats'
       latest = await Promise.all([host.next(isSnapshot), guest.next(isSnapshot)]);
     }
 
-    expect(['handEnd', 'matchEnd']).toContain(latest[0].view.phase);
+    expect(latest[0].view.phase).toBe('handEnd');
     expect(latest[0].view.game?.result).not.toBeNull();
     expect(latest[1].view.game?.result).toEqual(latest[0].view.game?.result);
+
+    guest.send({ t: 'action', action: { type: 'nextHand' } });
+    const unauthorizedNextHand = await guest.next(isError);
+    expect(unauthorizedNextHand.reason).toMatch(/host/i);
+    await Bun.sleep(75);
+    expect(host.take(isSnapshot)).toBeUndefined();
+    expect(guest.take(isSnapshot)).toBeUndefined();
+
+    host.send({ t: 'nextHand' });
+    latest = await Promise.all([host.next(isSnapshot), guest.next(isSnapshot)]);
+    expect(latest[0].view.phase).toBe('discard');
+    expect(latest[1].view.phase).toBe('discard');
+    expect(latest[0].view.game?.result).toBeNull();
+    expect(latest[1].view.game?.result).toBeNull();
 
     guest.close();
     const paused = await host.next(isSnapshot);
@@ -183,6 +197,16 @@ test('websocket room flow filters views, authorizes hosts, and reconnects seats'
     expect(hostResumed.view.phase).not.toBe('paused');
     expect(guestResumed.view.phase).not.toBe('paused');
     expect(guestResumed.view.you).toBe(guestJoined.seat);
+
+    reconnected.send({
+      t: 'create',
+      name: 'Gus',
+      config: { seats: 2, length: 'hand', minFaan: 0, timer: false },
+    });
+    await reconnected.next(isJoined);
+    const switchedRoom = await host.next(isSnapshot);
+    expect(switchedRoom.view.phase).toBe('paused');
+    expect(switchedRoom.view.seats[guestJoined.seat].connected).toBe(false);
   } finally {
     for (const client of clients) client.close();
     await server.stop(true);
