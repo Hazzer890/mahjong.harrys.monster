@@ -30,6 +30,7 @@ export interface Room {
   lastActivity: number;
   seq: number;
   rng: () => number;
+  wallSeed?: number;
 }
 
 export class Rooms {
