@@ -73,3 +73,32 @@ test('picks max-faan decomposition', () => {
   const s = scoreHand(['b1','b1','b1','b2','b2','b2','b3','b3','b3','b7','b8','b9','b5','b5'], [], ctx({ seatWind:'S' }))!;
   expect(s.faan).toBe(9); // pure 7 + all chows 1 + no flowers 1
 });
+
+test('small winds: 3 wind pungs + wind pair + bonus', () => {
+  const s = scoreHand(['wE','wE','wE','wS','wS','wS','wW','wW','wW','wN','wN','b1','b2','b3'], [],
+    ctx({ seatWind:'E', roundWind:'S' }))!;
+  // mixed one suit 3 + seat wind 1 + round wind 1 + small winds 6 + no flowers 1 = 12
+  expect(names(s)).toContain('Small winds');
+  expect(s.faan).toBe(12);
+});
+
+test('great winds = 13', () => {
+  const s = scoreHand(['wE','wE','wE','wS','wS','wS','wW','wW','wW','wN','wN','wN','b1','b1'], [], ctx())!;
+  expect(names(s)).toContain('Great winds');
+  expect(s.faan).toBe(13);
+});
+
+test('all honors caps at 13', () => {
+  const s = scoreHand(['wE','wE','wE','wS','wS','wS','dR','dR','dR','dG','dG','dG','dW','dW'], [],
+    ctx({ seatWind:'E', roundWind:'S' }))!;
+  // all pungs 3 + all honors 10 + dragon pung ×2 + seat wind 1 + round wind 1 + no flowers 1 = 18, capped at 13
+  expect(names(s)).toContain('All honors');
+  expect(s.faan).toBe(13);
+});
+
+test('season quartet = 7', () => {
+  const base = ['b1','b2','b3','b4','b5','b6','c1','c2','c3','d7','d8','d9','d5','d5'];
+  const s = scoreHand(base, [], ctx({ seatWind:'S', flowers: ['f5','f6','f7','f8'] }))!;
+  expect(names(s)).toContain('Season quartet');
+  expect(s.faan).toBe(1 + 4 + 2); // all chows + 4 flowers + quartet
+});
