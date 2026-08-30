@@ -53,14 +53,18 @@ export function useGame(): GameConn {
   const lastSeqRef = useRef(0);
   const nameRef = useRef('');
   const backoffRef = useRef(1000);
-  const unmountedRef = useRef(false);
 
   const send = useCallback((msg: ClientMsg) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(msg));
   }, []);
 
   useEffect(() => {
-    unmountedRef.current = false;
+    // ponytail: `cancelled` is local to this effect invocation (not a ref) so
+    // StrictMode's mount->cleanup->remount can't let the first socket's async
+    // onclose read a ref the second invocation already reset, and schedule a
+    // spurious duplicate reconnect.
+    let cancelled = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
     function connect(isInitial: boolean) {
       const ws = new WebSocket(wsUrl(location));
@@ -98,16 +102,17 @@ export function useGame(): GameConn {
 
       ws.onclose = () => {
         setConnected(false);
-        if (unmountedRef.current) return;
+        if (cancelled) return;
         const delay = backoffRef.current;
         backoffRef.current = Math.min(delay * 2, 10000);
-        setTimeout(() => connect(false), delay);
+        reconnectTimer = setTimeout(() => connect(false), delay);
       };
     }
 
     connect(true);
     return () => {
-      unmountedRef.current = true;
+      cancelled = true;
+      if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
       wsRef.current?.close();
     };
   }, []);

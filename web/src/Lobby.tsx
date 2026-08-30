@@ -3,7 +3,7 @@ import type { GameConn } from './useGame';
 import type { View } from '../../server/protocol';
 
 export default function Lobby({ conn, view }: { conn: GameConn; view: View }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const link = `${location.origin}/r/${view.code}`;
   const full = view.seats.length === view.config.seats;
 
@@ -19,13 +19,17 @@ export default function Lobby({ conn, view }: { conn: GameConn; view: View }) {
             <input readOnly value={link} />
             <button
               type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(link);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(link);
+                  setCopyState('copied');
+                } catch {
+                  setCopyState('failed');
+                }
+                setTimeout(() => setCopyState('idle'), 1500);
               }}
             >
-              {copied ? 'Copied!' : 'Copy'}
+              {copyState === 'copied' ? 'Copied!' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
             </button>
           </div>
         </label>
