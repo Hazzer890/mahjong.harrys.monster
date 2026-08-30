@@ -13,15 +13,23 @@ export function kindOf(t: Tile): Kind {
   return suitOf(t) as 'b' | 'c' | 'd';
 }
 
+// Face inks, drawn from the table's palette rather than Material defaults, and all
+// kept dark enough to stay legible on the ivory face.
+const CINNABAR = '#b8362c';
+const JADE = '#1c6b4a';
+const INK = '#17130f';
+const INK_BLUE = '#1d4f8c';
+const BRASS = '#8a5a12';
+
 const NUMERALS = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
 const WIND_CHARS: Record<string, string> = { E: '東', S: '南', W: '西', N: '北' };
 const DRAGON_CHARS: Record<string, { char: string; color: string }> = {
-  R: { char: '中', color: '#c5221f' },
-  G: { char: '發', color: '#188038' },
-  W: { char: '', color: '#1a1a1a' },
+  R: { char: '中', color: CINNABAR },
+  G: { char: '發', color: JADE },
+  W: { char: '', color: INK },
 };
 const FLOWER_CHARS = ['梅', '蘭', '菊', '竹', '春', '夏', '秋', '冬'];
-const DOT_COLORS = ['#1a73e8', '#188038', '#c5221f'];
+const DOT_COLORS = [INK_BLUE, JADE, CINNABAR];
 
 // Symmetric pip layouts (percent coords, 0-100) shared by dots and bamboo.
 export function pips(n: number): [number, number][] {
@@ -49,8 +57,8 @@ function FaceContent({ t }: { t: Tile }) {
   if (kind === 'c') {
     return (
       <>
-        <text x="50" y="48" textAnchor="middle" fontSize="34" fill="#c5221f" fontFamily="'Noto Serif SC', serif">{NUMERALS[Number(r) - 1]}</text>
-        <text x="50" y="112" textAnchor="middle" fontSize="46" fill="#1a1a1a" fontFamily="'Noto Serif SC', serif">萬</text>
+        <text x="50" y="48" textAnchor="middle" fontSize="34" fill={CINNABAR} fontFamily="'Noto Serif SC', serif">{NUMERALS[Number(r) - 1]}</text>
+        <text x="50" y="112" textAnchor="middle" fontSize="46" fill={INK} fontFamily="'Noto Serif SC', serif">萬</text>
       </>
     );
   }
@@ -64,26 +72,26 @@ function FaceContent({ t }: { t: Tile }) {
     );
   }
   if (kind === 'b') {
-    if (r === '1') return <rect x={44} y={20} width={12} height={100} rx={6} fill="#188038" />;
+    if (r === '1') return <rect x={44} y={20} width={12} height={100} rx={6} fill={JADE} />;
     return (
       <>
         {pips(Number(r)).map(([x, y], i) => (
-          <rect key={i} x={px(x) - 5} y={py(y) - 14} width={10} height={28} rx={5} fill="#188038" />
+          <rect key={i} x={px(x) - 5} y={py(y) - 14} width={10} height={28} rx={5} fill={JADE} />
         ))}
       </>
     );
   }
   if (kind === 'wind') {
-    return <text x="50" y="85" textAnchor="middle" fontSize="52" fill="#1a1a1a" fontFamily="'Noto Serif SC', serif">{WIND_CHARS[t.slice(1)]}</text>;
+    return <text x="50" y="85" textAnchor="middle" fontSize="52" fill={INK} fontFamily="'Noto Serif SC', serif">{WIND_CHARS[t.slice(1)]}</text>;
   }
   if (kind === 'dragon') {
     const d = DRAGON_CHARS[t.slice(1)];
     return d.char
       ? <text x="50" y="85" textAnchor="middle" fontSize="56" fill={d.color} fontFamily="'Noto Serif SC', serif">{d.char}</text>
-      : <rect x={20} y={30} width={60} height={80} fill="none" stroke="#1a73e8" strokeWidth={4} rx={6} />;
+      : <rect x={20} y={30} width={60} height={80} fill="none" stroke={INK_BLUE} strokeWidth={4} rx={6} />;
   }
   // flower
-  return <text x="50" y="85" textAnchor="middle" fontSize="46" fill="#8e24aa" fontFamily="'Noto Serif SC', serif">{FLOWER_CHARS[Number(r) - 1]}</text>;
+  return <text x="50" y="85" textAnchor="middle" fontSize="46" fill={BRASS} fontFamily="'Noto Serif SC', serif">{FLOWER_CHARS[Number(r) - 1]}</text>;
 }
 
 const SUIT_NAMES: Record<string, string> = { b: 'bamboo', c: 'characters', d: 'dots' };

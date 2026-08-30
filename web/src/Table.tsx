@@ -126,7 +126,9 @@ export default function Table({ conn, view }: { conn: GameConn; view: View }) {
           <span className="info-right">
             {playing && (
               <span className="info-turn">
-                {timed && <Timer key={`${game.turn}-${view.phase}`} />}
+                {/* wallCount also moves on a gong's replacement draw, which is the one
+                  turn-keeping action that should still restart the clock. */}
+              {timed && <Timer key={`${game.turn}-${view.phase}-${game.wallCount}`} />}
                 {view.phase === 'claims'
                   ? 'Claims open'
                   : game.turn === you ? 'Your turn' : `${view.seats[game.turn]?.name} to play`}
@@ -135,7 +137,6 @@ export default function Table({ conn, view }: { conn: GameConn; view: View }) {
             <button
               type="button"
               className="ghost mute-toggle"
-              aria-pressed={muted}
               onClick={() => { sounds.toggle(); setMuted(sounds.muted); }}
             >
               {muted ? 'Sound off' : 'Sound on'}

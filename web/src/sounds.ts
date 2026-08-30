@@ -29,7 +29,9 @@ function isMuted(): boolean {
 function audio(): AudioContext | null {
   try {
     ctx ??= new AudioContext();
-    if (ctx.state === 'suspended') void ctx.resume();
+    // Chrome rejects resume() until the page has seen a gesture, and snapshots
+    // arrive long before one — swallow it rather than log on every view.
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     return ctx;
   } catch {
     return null;

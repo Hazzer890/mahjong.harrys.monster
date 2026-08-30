@@ -11,7 +11,7 @@
   --felt-line: #2c5a49;
   --felt-well: #163229;
   --paper: #ece2cc;
-  --paper-dim: #93a398;
+  --paper-dim: #a5b4a9; /* 5.2:1 on the felt, so the info strip clears AA */
   --ink: #17130f;
   --ink-dim: #5d5648;
   --brass: #c9a227;
@@ -798,5 +798,6 @@ button.ghost:hover { color: var(--paper); border-color: #3a4a41; }
 
 @media (prefers-reduced-motion: reduce) {
   .tile--selected { transition: none; }
-  .timer-arc { animation: timer-drain var(--timer-duration, 20s) linear forwards; }
+  /* No drain, and no flashing track at expiry: the ring stays a static marker. */
+  .timer-arc, .timer-track { animation: none; }
 }

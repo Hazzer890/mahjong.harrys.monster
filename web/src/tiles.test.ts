@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { kindOf, pips } from './tiles';
+import { kindOf, pips, tileName } from './tiles';
 
 describe('kindOf', () => {
   test('disambiguates dots from dragons despite sharing the d prefix', () => {
@@ -14,6 +14,17 @@ describe('kindOf', () => {
     expect(kindOf('c9')).toBe('c');
     expect(kindOf('wE')).toBe('wind');
     expect(kindOf('f1')).toBe('flower');
+  });
+});
+
+describe('tileName', () => {
+  test('names every family a screen reader can hit', () => {
+    expect(tileName('c3')).toBe('3 characters');
+    expect(tileName('d5')).toBe('5 dots');
+    expect(tileName('b1')).toBe('1 bamboo');
+    expect(tileName('wE')).toBe('east wind');
+    expect(tileName('dW')).toBe('white dragon');
+    expect(tileName('f4')).toBe('flower 4');
   });
 });
 

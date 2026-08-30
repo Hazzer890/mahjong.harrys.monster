@@ -23,7 +23,14 @@ export default function WinScreen({ conn, view }: { conn: GameConn; view: View }
   const concealed = sortTiles(result.winningConcealed ?? []);
   const winIndex = result.winTile === undefined ? -1 : concealed.indexOf(result.winTile);
   const melds = result.winningMelds ?? [];
-  const items = result.items ?? [];
+
+  // The engine lists every pattern separately, so three flowers arrive as three
+  // identical rows; collapse them or the slip reads like a rendering bug.
+  const items = new Map<string, { count: number; faan: number }>();
+  for (const item of result.items ?? []) {
+    const row = items.get(item.name) ?? { count: 0, faan: 0 };
+    items.set(item.name, { count: row.count + 1, faan: row.faan + item.faan });
+  }
 
   const best = Math.max(...view.seats.map(seat => seat.score));
   const champions = view.seats.filter(seat => seat.score === best).map(seat => seat.name);
@@ -33,7 +40,9 @@ export default function WinScreen({ conn, view }: { conn: GameConn; view: View }
       <div className="slip">
         <p className="slip-eyebrow">{final ? 'Match over' : 'Hand over'}</p>
         <h2 className="slip-title">
-          {winner === null ? 'Draw — dealer repeats' : `${winner.name} wins`}
+          {winner !== null
+            ? `${winner.name} wins`
+            : final ? 'Nobody won the last hand' : 'Draw — dealer repeats'}
         </h2>
         {winner !== null && (
           <p className="slip-sub">
@@ -67,12 +76,12 @@ export default function WinScreen({ conn, view }: { conn: GameConn; view: View }
           </div>
         )}
 
-        {items.length > 0 && (
+        {items.size > 0 && (
           <ul className="faan-list">
-            {items.map((item, i) => (
-              <li key={i}>
-                <span className="faan-name">{item.name}</span>
-                <span className="faan-value">{item.faan}</span>
+            {[...items].map(([name, { count, faan }]) => (
+              <li key={name}>
+                <span className="faan-name">{name}{count > 1 ? ` ×${count}` : ''}</span>
+                <span className="faan-value">{faan}</span>
               </li>
             ))}
             <li className="faan-total">
